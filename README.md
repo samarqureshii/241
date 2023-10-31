@@ -19,3 +19,8 @@
 - To test files: `/cad2/ece241f/public/5/tester` 
 - To submit files `/cad2/ece241f/public/submit 5 part1.v part2.v part3.v`
 - To check submission status `/cad2/ece241f/public/check_submission 5`
+
+## Lab 6
+- To test files: `/cad2/ece241f/public/6/tester` 
+- To submit files `/cad2/ece241f/public/submit 56 part1.v part2.v`
+- To check submission status `/cad2/ece241f/public/check_submission 6`
