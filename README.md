@@ -22,5 +22,5 @@
 
 ## Lab 6
 - To test files: `/cad2/ece241f/public/6/tester` 
-- To submit files `/cad2/ece241f/public/submit 56 part1.v part2.v`
+- To submit files `/cad2/ece241f/public/submit 6 part1.v part2.v`
 - To check submission status `/cad2/ece241f/public/check_submission 6`

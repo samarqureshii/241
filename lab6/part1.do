@@ -11,9 +11,9 @@ add wave /part1/CurState
 force {Clock} 0 0ns, 1 {5ns} -r 10ns
 
 
-force resetn 0
+force Reset 0
 run 10ns
-force resetn 1
+force Reset 1
 run 10ns
 
 force w 1
@@ -24,15 +24,14 @@ force w 1
 run 10ns
 force w 1
 run 30ns
-force resetn 0
+force Reset 0
 run 20ns
-force resetn 1
+force Reset 1
 run 40ns
 
 
-// edge cases
-
-//1101
+#edge cases
+#1101
 force w 1
 run 10ns
 force w 1
@@ -42,7 +41,7 @@ run 10ns
 force w 1
 run 10ns
 
-// overlap 11011 
+#overlap 11011 
 force w 1
 run 10ns
 force w 1
@@ -54,7 +53,7 @@ run 10ns
 force w 1
 run 10ns
 
-// overlap 11101
+#overlap 11101
 force w 1
 run 10ns
 force w 1

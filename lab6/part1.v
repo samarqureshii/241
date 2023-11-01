@@ -1,3 +1,14 @@
+module topLevel(HEX0, LEDR, KEY, SW);
+    input [9:0] SW;
+    input [1:0] KEY;
+    output [9:0] LEDR;
+    output [6:0] HEX0;
+
+    hex_decoder hd(.c(LEDR[3:0]), .display(HEX0));
+    part1 p1(.Clock(KEY[0]), .Reset(SW[0]), .w(SW[1]), .z(LEDR[9]), .CurState(LEDR[3:0]));
+
+endmodule
+
 module part1(Clock, Reset, w, z, CurState);
     input Clock;
     input Reset;
@@ -16,9 +27,12 @@ module part1(Clock, Reset, w, z, CurState);
     //This will make it easier to read, modify and debug the code.
     always@(*)
     begin: state_table
-        case (y_Q)
+        case (y_Q) // y_Q represents current state, Y_D represents next state
+        //depending on the current state y_Q and the input w, we can determine the next state Y_D
             A: begin
+                //if in state A, if W = 0, it remains in state A
                    if (!w) Y_D = A;
+                // however if in state A, W = 1, it goes to state B
                    else Y_D = B;
                end
             B: begin
@@ -52,7 +66,7 @@ module part1(Clock, Reset, w, z, CurState);
     // State Registers
     always @(posedge Clock)
     begin: state_FFs
-        if(Reset!= 1'b0)
+        if(Reset!= 1'b0) //undefined state 
             y_Q <=  A; // Should set reset state to state A
         else
             y_Q <= Y_D;
@@ -63,4 +77,23 @@ module part1(Clock, Reset, w, z, CurState);
     assign z = ((y_Q == F) | (y_Q == G));
 
     assign CurState = y_Q;
+endmodule
+
+
+module hex_decoder(c, display);
+    input [3:0] c;
+    output [6:0] display;
+    
+    assign c0 = c[0];
+    assign c1 = c[1];
+    assign c2 = c[2];
+    assign c3 = c[3];
+
+    assign display[0] = (~c3 & ~c2 & ~c1 & c0) + (~c3 & c2 & ~c1 & ~c0) + (c3 & ~c2 & c1 & c0) + (c3 & c2 & ~c1 & c0);
+    assign display[1] = (~c3 & c2 & ~c1 & c0) + (~c3 & c2 & c1 & ~c0) + (c3 & ~c2 & c1 & c0) + (c3 & c2 & ~c1 & ~c0) + (c3 & c2 & c1 & ~c0) + (c3 & c2 & c1 & c0);
+    assign display[2] = (~c3 & ~c2 & c1 & ~c0) + (c3 & c2 & ~c1 & ~c0) + (c3 & c2 & c1 & ~c0) + (c3 & c2 & c1 & c0);	
+    assign display[3] = (~c3 & ~c2 & ~c1 & c0) + (~c3 & c2 & ~c1 & ~c0) + (~c3 & c2 & c1 & c0) + (c3 & ~c2 & ~c1 & c0) + (c3 & ~c2 & c1 & ~c0) + (c3 & c2 & c1 & c0);
+    assign display[4] = (~c3 & ~c2 & ~c1 & c0) + (~c3 & ~c2 & c1 & c0) + (~c3 & c2 & ~c1 & ~c0) + (~c3 & c2 & ~c1 & c0) + (~c3 & c2 & c1 & c0) + (c3 & ~c2 & ~c1 & c0);
+    assign display[5] = (~c3 & ~c2 & ~c1 & c0) + (~c3 & ~c2 & c1 & ~c0) + (~c3 & ~c2 & c1 & c0) + (~c3 & c2 & c1 & c0) + (c3 & c2 & ~c1 & c0);
+    assign display[6] = (~c3 & ~c2 & ~c1 & ~c0) + (~c3 & ~c2 & ~c1 & c0) + (~c3 & c2 & c1 & c0) + (c3 & c2 & ~c1 & ~c0);
 endmodule
