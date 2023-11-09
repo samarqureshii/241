@@ -1,6 +1,6 @@
 vlib work
-vlog part1.v top_level_module
-vsim part1  -L altera_mf_ver 
+vlog part1.v top_level_part1.v
+vsim top_level_part1 -L altera_mf_ver 
 log {/*}
 add wave {/*}
 # write to address 0x00000 0111
