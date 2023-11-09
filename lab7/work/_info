@@ -1,0 +1,50 @@
+m255
+K4
+z2
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+Z0 dC:/Users/Basement/Documents/GitHub/241/lab7
+vpart1
+Z1 !s110 1699541564
+!i10b 1
+!s100 65koUV:I1A4SWoETj>;WI3
+IfUNNgHVg9SS67l`YbH_Sz1
+Z2 VDg1SIo80bB@j0V0VzS_@n1
+R0
+w1699539340
+8part1.v
+Fpart1.v
+L0 39
+Z3 OV;L;10.5b;63
+r1
+!s85 0
+31
+Z4 !s108 1699541563.000000
+Z5 !s107 top_level_part1.v|part1.v|
+Z6 !s90 -reportprogress|300|part1.v|top_level_part1.v|
+!i113 1
+Z7 tCvgOpt 0
+vtop_level_part1
+R1
+!i10b 1
+!s100 ^Sigo4>GEGXc7TLg55==72
+IRYgfB22MPjKDW1cU66Hl[3
+R2
+R0
+w1699541215
+8top_level_part1.v
+Ftop_level_part1.v
+L0 3
+R3
+r1
+!s85 0
+31
+R4
+R5
+R6
+!i113 1
+R7

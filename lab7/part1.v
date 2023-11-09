@@ -33,16 +33,6 @@
 //refer to the applicable agreement for further details, at
 //https://fpgasoftware.intel.com/eula.
 
-
-module toplevel(KEY, SW, HEX0);
-	input [9:0] SW;
-	input [1:0] KEY;
-	output[3:0] HEX0;
-	
-	part1 p1(.address(SW[8:4]), .clock(KEY[0]), .data(SW[3:0]), .wren(SW[9]), .q(HEX0));
-	//address clock data (in) wren q (data out)
-endmodule
-
 // synopsys translate_off
 `timescale 1 ps / 1 ps
 // synopsys translate_on
