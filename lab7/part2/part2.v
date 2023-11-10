@@ -39,36 +39,76 @@ module part2(
    output wire       oDone;       // goes high when finished drawing frame
 
    //instantiate Control and Datapath modules 
+   wire loadX, loadYC, loadD, loadB, plot;
+   wire [7:0] blackX;
+   wire [6:0] blackY;
+   wire [3:0] counter;
+   // wire [7:0] x_wire;
+   // wire [6:0] y_wire;
+   // wire [2:0] colour;
+   
+   Control C1 (
+   .Clock(iClock),
+   .ResetN(iResetn),
+   .iLoadX(iLoadX),
+   .iPlotBox(iPlotBox),
+   .iBlack(iBlack),
+   .counter(counter), 
+   .blackX(blackX),   
+   .blackY(blackY),   
+   .loadX(loadX),
+   .loadYC(loadYC),
+   .loadD(loadD),
+   .loadB(loadB),
+   .done(oDone),
+   .plot(oPlot));
+
+// Instantiate Datapath module
+Datapath D1 (
+   .Clock(iClock),
+   .ResetN(iResetn),
+   .init_coord(iXY_Coord),
+   .Colour(iColour),
+   .ControlX(loadX),
+   .ControlYC(loadYC),
+   .ControlD(loadD),
+   .ControlB(loadB),
+   .oX(oX),
+   .oY(oY),
+   .oC(oColour),
+   .counter(counter),
+   .blackX(blackX),
+   .blackY(blackY));
 
 endmodule // part2
 
 
 //FSM to control which state we need to be in and assert the control signal to datapath 
-module Control();
-   input Clock;
-   input ResetN;
-   input iLoadX;
-   input iPlotBox;
-   input iBlack;
+module Control(
+   input Clock,
+   input ResetN,
+   input iLoadX,
+   input iPlotBox,
+   input iBlack,
+   input [3:0] counter, //4 bit counter
+   input [7:0] blackX,
+   input [6:0] blackY,
 
-   input [7:0] X_SCREEN_PIXELS;
-   input [6:0] Y_SCREEN_PIXELS;
-   input[3:0] counter; //4 bit counter
-   input [7:0] blackX;
-   input [6:0] blackY;
+   //outputs to datapath and VGA
+   output reg loadX, //load the X register
+   output reg loadYC, //load the Y and colour registers
+   output reg loadD, //start drawing
+   output reg loadB, //clear the screen
+   output reg done, //must be high until we pulse iPlotBox or iBlack
+   output reg plot; //output to VGA
+   );
 
-   // internal registers for current and next states
+   parameter X_SCREEN_PIXELS = 8'd160;
+   parameter Y_SCREEN_PIXELS = 7'd120;
+
+   // internal registers for current and next states. must be 3 bits wide because we have 7 different states in the FSM
    reg [2:0] current;
    reg [2:0] next;
-
-   //outputs to datapath
-   output reg loadX; //load the X register
-   output reg loadYC; //load the Y and colour registers
-   output reg loadD; //start drawing
-   output reg loadB; //clear the screen
-
-   output reg done; //must be high until we pulse iPlotBox or iBlack
-   output reg plot; //output to VGA
 
    //state parameters. need to also account for waiting time in between each state.
    localparam S_LOAD_X = 3'd0,
@@ -101,7 +141,7 @@ module Control();
       case(current)
          S_LOAD_X:
             next = iLoadX ? S_WAIT_X : current; //keep waiting until we load x
-            //datapath
+            //datapath control
             loadX = 1;
             plot = 0;
 
@@ -110,7 +150,7 @@ module Control();
          
          S_LOAD_YC:
             next = iPlotBox ? S_WAIT_YC : current; //once iPlotBox goes high, then we can now load y and colour
-            //datapath
+            //datapath control
             loadYC = 1;
             plot = 0;
 
@@ -119,7 +159,7 @@ module Control();
          
          S_DRAW: //if counter hits 1111, then we know we are done drawing the box
             next = (counter == 4'b1111) ? S_DRAW_WAIT : current;
-            //datapath ctrl
+            //datapath control
             loadD = 1;
             plot = 1;
          
@@ -140,37 +180,33 @@ module Control();
 endmodule
 
 
-module Datapath(); 
-   //Registers to hold the current x and current y
-   //4 bit counter to sweep across
-   input Clock;
-   input ResetN;
-   input [7:0] X_SCREEN_PIXELS;
-   input [6:0] Y_SCREEN_PIXELS;
-   input [2:0] Colour;
-   input [6:0] init_coord; //initial X and then Y coord
-   //control signals so we know when to load each of the registers
-   input ControlX, //control when to load the x register
-      ControlYC, //control when to load the y register and colour register
-      ControlD, //control when to draw and output the x/y registers
-      ControlB; //control when we want to clear the screen
+module Datapath(
+   input Clock,
+   input ResetN,
+   input [6:0] init_coord, // initial X and then Y coord
+   input [2:0] Colour,
+
+   input ControlX, // control when to load the x register
+   input ControlYC, // control when to load the y register and colour register
+   input ControlD, // control when to draw and output the x/y registers
+   input ControlB, // control when we want to clear the screen
+
+   //outputs to the VGA adapater 
+   output reg [7:0] oX; //x coord
+   output reg [6:0] oY; //y coord
+   output reg [2:0] oC; //colour
+
+   //storage of the current black X and Y, needs to be outputted into Control module so we know which state we're in
+   output reg [7:0] blackX;
+   output reg [6:0] blackY; 
+   output reg [3:0] counter; //internal counter
+);
 
    //internal storage the current x, y and colour (when we are drawing normally)
    reg [7:0] x_init; //from 0 to 159
    reg [6:0] y_init; //from 0 to 119
    reg [2:0] colour; // 001, 010, 100
 
-   //outputs to the VGA adapater 
-   output reg [7:0] oX; //x coord
-   output reg [6:0] oY; //y coord
-   output reg [2:0] oC; //colour
-   
-   //storage of the current black X and Y, needs to be outputted into Control module so we know which state we're in
-   output reg [7:0] blackX;
-   output reg [6:0] blackY; 
-
-   //internal counter
-   output reg [3:0] counter;
 
   //load the registers based on control signals
   always@(posedge Clock) begin
