@@ -101,52 +101,40 @@ module Control();
       case(current)
          S_LOAD_X:
             next = iLoadX ? S_WAIT_X : current; //keep waiting until we load x
+            //datapath
+            loadX = 1;
+            plot = 0;
+
          S_WAIT_X: //once load x goes low, we can load x and start waiting for y and colour to be loaded
             next = iLoadX ? current : S_LOAD_YC; //once iLoadX goes to false, then we can load Y and colour
+         
          S_LOAD_YC:
             next = iPlotBox ? S_WAIT_YC : current; //once iPlotBox goes high, then we can now load y and colour
+            //datapath
+            loadYC = 1;
+            plot = 0;
+
          S_WAIT_YC:
             next = iPlotBox ? current : S_DRAW; //once iPlotBox goes low, then we can now draw
+         
          S_DRAW: //if counter hits 1111, then we know we are done drawing the box
             next = (counter == 4'b1111) ? S_DRAW_WAIT : current;
+            //datapath ctrl
+            loadD = 1;
+            plot = 1;
+         
          S_DRAW_WAIT: //either after we have draw or clear the screen, we have to wait for the x to be loaded again
             next = S_LOADX;
+         
          S_CLEAR: // if we are done clearing the screen, we now wait
             next = ((blackX == X_SCREEN_PIXELS-1) && (blackY == Y_SCREEN_PIXELS-1)) ? S_DRAW_WAIT: current;
+            //datapath control
+            loadB = 1;
+            plot = 1;
+
          default:
             next = S_LOAD_X;
       endcase 
-   end
-
-   always @ (*) begin //data path control states (output logic)
-      loadX = 0; //load the x coordinate register
-      loadYC = 0; //load the y and colour registers
-      loadB = 0; //load the black screen register
-      loadD = 0; //load the draw register
-
-      case
-         S_LOAD_X: begin
-            loadX = 1;
-            plot = 0;
-         end
-
-         S_LOAD_YC: begin
-            //loadX = 0;
-            loadYC = 1;
-            plot = 0;
-         end
-
-         S_DRAW: begin
-            //loadYC = 0;
-            loadD = 1;
-            plot = 1;
-         end
-
-         S_CLEAR: begin
-            loadB = 1;
-            plot = 1;
-         end
-      endcase
    end
 
 endmodule
