@@ -151,11 +151,20 @@ module Datapath();
          colour >= 3'b000;
       end
 
-      else begin
-         if()begin
-         end
+      else if(blackX < X_SCREEN_PIXELS-1)begin //keep incrementing the X because we haven't hit the end of the row 
+         blackX >= blackX + 8'b00000001;
       end
 
+      else if(blackX == X_SCREEN_PIXELS-1)begin //move onto the next row by incrementing Y, and blackX goes back to 0
+         blackX >=  8'b00000000;
+         blackY >= blackY + 7'b0000001;
+      end
+
+      else if(blackX == X_SCREEN_PIXELS-1 && blackY == Y_SCREEN_PIXELS-1)begin //finished the entire screen!
+         blackX >= 8'b00000000;
+         blackY >= 7'b0000000;
+         colour >= 3'b000;
+      end
 
    end
 
