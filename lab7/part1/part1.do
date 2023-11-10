@@ -37,6 +37,7 @@ force address 5'd1
 force data 4'd00
 run 10ns
 
+#now we read
 force wren 1'b0
 force address 5'd0
 run 10ns
