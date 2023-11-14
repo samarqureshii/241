@@ -267,17 +267,28 @@ module Datapath(
             colour <= Colour;
         end
 
-        if (ControlD) begin
+        else if (ControlD) begin
             // Draw the pixel based on the current count
          if (counter < 5'b10000) begin
             counter <= counter + 1'b1;
          end
-         
+
             oX <= x_init + counter[1:0]; // Add LSBs of counter to x_init
             oY <= y_init + counter[3:2]; // Add MSBs of counter to y_init
             oC <= colour; // Keep the colour until the pixel is drawn
         end 
+
         else if (ControlB) begin
+            if (blackX < X_SCREEN_PIXELS - 1) begin
+                blackX <= blackX + 1'b1;
+            end else if (blackY < Y_SCREEN_PIXELS - 1) begin
+                blackY <= blackY + 1'b1;
+                blackX <= 8'b0;
+            end else begin
+                // Reset to starting position after the screen is cleared
+                blackX <= 8'b0;
+                blackY <= 7'b0;
+            end
             // Clearing logic
             oX <= blackX;
             oY <= blackY;
@@ -306,25 +317,26 @@ module Datapath(
    // end
 
 
-    // Handle the black screen drawing logic
-    always @(posedge Clock) begin
-        if (!ResetN) begin
-            // Reset black screen counters
-            blackX <= 8'b0;
-            blackY <= 7'b0;
-        end else if (ControlB) begin
-            if (blackX < X_SCREEN_PIXELS - 1) begin
-                blackX <= blackX + 1'b1;
-            end else if (blackY < Y_SCREEN_PIXELS - 1) begin
-                blackY <= blackY + 1'b1;
-                blackX <= 8'b0;
-            end else begin
-                // Reset to starting position after the screen is cleared
-                blackX <= 8'b0;
-                blackY <= 7'b0;
-            end
-        end
-    end
+   //  // Handle the black screen drawing logic
+   //  always @(posedge Clock) begin
+   //      if (!ResetN) begin
+   //          // Reset black screen counters
+   //          blackX <= 8'b0;
+   //          blackY <= 7'b0;
+   //      end 
+   //      else if (ControlB) begin
+   //          if (blackX < X_SCREEN_PIXELS - 1) begin
+   //              blackX <= blackX + 1'b1;
+   //          end else if (blackY < Y_SCREEN_PIXELS - 1) begin
+   //              blackY <= blackY + 1'b1;
+   //              blackX <= 8'b0;
+   //          end else begin
+   //              // Reset to starting position after the screen is cleared
+   //              blackX <= 8'b0;
+   //              blackY <= 7'b0;
+   //          end
+   //      end
+   //  end
 
 endmodule
 
