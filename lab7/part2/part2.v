@@ -266,37 +266,44 @@ module Datapath(
             y_init <= init_coord;
             colour <= Colour;
         end
-    end
 
-    // Drawing the box or clearing the screen
-    always @(posedge Clock) begin
         if (ControlD) begin
             // Draw the pixel based on the current count
+         if (counter < 5'b10000) begin
+            counter <= counter + 1'b1;
+         end
+         
             oX <= x_init + counter[1:0]; // Add LSBs of counter to x_init
             oY <= y_init + counter[3:2]; // Add MSBs of counter to y_init
             oC <= colour; // Keep the colour until the pixel is drawn
-        end else if (ControlB) begin
+        end 
+        else if (ControlB) begin
             // Clearing logic
             oX <= blackX;
             oY <= blackY;
             oC <= 3'b0; // Set colour to black
         end
-    end
 
-   always @(posedge Clock) begin
-      if (!ResetN) begin
-         // reset the counter on a reset signal.
-         counter <= 5'b0;
-      end else if (ControlD) begin
-         //if the draw control signal is active and the counter is less than 15, increment the counter.
-         if (counter < 5'b10000) begin
-               counter <= counter + 1'b1;
-         end
-      end else begin
+        else begin
          // if the draw control signal is not active, reset the counter.
          counter <= 5'b0;
       end
-   end
+    end
+
+   // always @(posedge Clock) begin
+   //    if (!ResetN) begin
+   //       // reset the counter on a reset signal.
+   //       counter <= 5'b0;
+   //    end else if (ControlD) begin
+   //       //if the draw control signal is active and the counter is less than 15, increment the counter.
+   //       if (counter < 5'b10000) begin
+   //             counter <= counter + 1'b1;
+   //       end
+   //    end else begin
+   //       // if the draw control signal is not active, reset the counter.
+   //       counter <= 5'b0;
+   //    end
+   // end
 
 
     // Handle the black screen drawing logic
