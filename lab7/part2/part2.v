@@ -100,7 +100,7 @@ module Control(
    output reg loadD, //start drawing
    output reg loadB, //clear the screen
    output reg done, //must be high until we pulse iPlotBox or iBlack
-   output reg plot; //output to VGA
+   output reg plot //output to VGA
    );
 
    parameter X_SCREEN_PIXELS = 8'd160;
@@ -119,160 +119,179 @@ module Control(
                S_DRAW_WAIT = 3'd5,
                S_CLEAR = 3'd6;
 
-
    always @ (posedge Clock) begin
-    if(!ResetN) begin // active low reset
-    //need to b in known state
-      current <= S_LOAD_X; //back 2 start
+   if (!ResetN) begin // active low reset
+      current <= S_LOAD_X; // back to start
       loadX <= 0;
       loadYC <= 0;
       loadD <= 0;
       loadB <= 0;
       done <= 0;
       plot <= 0;
-    end 
-    
-    else begin
-        current <= next; 
-    end
+   end 
+
+   else if(loadB) begin
+      current <= S_CLEAR;
    end
 
-   always @ (*) begin //state table 
-      case(current)
-         S_LOAD_X:
-            next = iLoadX ? S_WAIT_X : current; //keep waiting until we load x
-            //datapath control
-            loadX = 1;
-            plot = 0;
+   else begin
+      current <= next; 
+   end
+   end
 
-         S_WAIT_X: //once load x goes low, we can load x and start waiting for y and colour to be loaded
-            next = iLoadX ? current : S_LOAD_YC; //once iLoadX goes to false, then we can load Y and colour
-         
-         S_LOAD_YC:
-            next = iPlotBox ? S_WAIT_YC : current; //once iPlotBox goes high, then we can now load y and colour
-            //datapath control
-            loadYC = 1;
-            plot = 0;
+   always @ (*) begin // State table 
+      // reset all control signals at the beginning of each state transition so they dont stay high
+      loadX = 0;
+      loadYC = 0;
+      loadD = 0;
+      loadB = 0;
+      plot = 0;
+      
+      case (current)
+         S_LOAD_X: begin
+            next = iLoadX ? S_WAIT_X : current; // keep waiting until we load x
+            loadX = 1; // assert loadX to load the X coordinate
+         end
 
-         S_WAIT_YC:
-            next = iPlotBox ? current : S_DRAW; //once iPlotBox goes low, then we can now draw
+         S_WAIT_X: begin // once load x goes low, we can load x and start waiting for y and color to be loaded
+            next = !iLoadX ? S_LOAD_YC : current; // move to the next state when iLoadX is deasserted
+            // deassert all control signals here
+         end
+
+         S_LOAD_YC: begin
+            next = iPlotBox ? S_WAIT_YC : current; // Once iPlotBox goes high, then we can load y and color
+            loadYC = 1; // Assert loadYC to load the Y coordinate and color
+         end
+
+         S_WAIT_YC: begin
+            next = !iPlotBox ? S_DRAW : current; //iPlotBox is deasserted, we move to the drawing state
+            // deassert all control signals here
+         end
          
-         S_DRAW: //if counter hits 1111, then we know we are done drawing the box
+         S_DRAW: begin // if counter hits 1111, then we know we are done drawing the box
+            loadD = 1; // assert loadD to start drawing
+            plot = 1; // assert plot to enable drawing on VGA
             next = (counter == 4'b1111) ? S_DRAW_WAIT : current;
-            //datapath control
-            loadD = 1;
-            plot = 1;
-         
-         S_DRAW_WAIT: //either after we have draw or clear the screen, we have to wait for the x to be loaded again
-            next = S_LOADX;
-         
-         S_CLEAR: // if we are done clearing the screen, we now wait
-            next = ((blackX == X_SCREEN_PIXELS-1) && (blackY == Y_SCREEN_PIXELS-1)) ? S_DRAW_WAIT: current;
-            //datapath control
-            loadB = 1;
-            plot = 1;
+         end
 
-         default:
+         S_DRAW_WAIT: begin // either after we have drawn or cleared the screen, we have to wait for the x to be loaded again
+            done = 1; // assert done to indicate completion
+            next = (iLoadX || iBlack) ? S_LOAD_X : current; // move to load X only if iLoadX or iBlack is pulsed
+         end
+
+         S_CLEAR: begin // if we are done clearing the screen, we now wait
+            loadB = 1; // assert loadB to clear the screen
+            plot = 1; // assert plot to enable drawing on VGA
+            next = ((blackX == X_SCREEN_PIXELS-1) && (blackY == Y_SCREEN_PIXELS-1)) ? S_DRAW_WAIT : current;
+            if (next == S_DRAW_WAIT) done = 1; // Assert done after clearing is complete
+         end
+
+         default: begin
             next = S_LOAD_X;
+         end
       endcase 
    end
-
 endmodule
+
 
 
 module Datapath(
-   input Clock,
-   input ResetN,
-   input [6:0] init_coord, // initial X and then Y coord
-   input [2:0] Colour,
+    input Clock,
+    input ResetN,
+    input [6:0] init_coord, // initial X and then Y coord
+    input [2:0] Colour,
 
-   input ControlX, // control when to load the x register
-   input ControlYC, // control when to load the y register and colour register
-   input ControlD, // control when to draw and output the x/y registers
-   input ControlB, // control when we want to clear the screen
+    input ControlX, // control when to load the x register
+    input ControlYC, // control when to load the y register and colour register
+    input ControlD, // control when to draw and output the x/y registers
+    input ControlB, // control when we want to clear the screen
 
-   //outputs to the VGA adapater 
-   output reg [7:0] oX; //x coord
-   output reg [6:0] oY; //y coord
-   output reg [2:0] oC; //colour
+    //outputs to the VGA adapter 
+    output reg [7:0] oX, //x coord
+    output reg [6:0] oY, //y coord
+    output reg [2:0] oC, //colour
 
-   //storage of the current black X and Y, needs to be outputted into Control module so we know which state we're in
-   output reg [7:0] blackX;
-   output reg [6:0] blackY; 
-   output reg [3:0] counter; //internal counter
+    //storage of the current black X and Y, needs to be outputted into Control module so we know which state we're in
+    output reg [7:0] blackX,
+    output reg [6:0] blackY,
+    output reg [3:0] counter //internal counter
 );
 
-   //internal storage the current x, y and colour (when we are drawing normally)
-   reg [7:0] x_init; //from 0 to 159
-   reg [6:0] y_init; //from 0 to 119
-   reg [2:0] colour; // 001, 010, 100
+    //internal storage the current x, y and colour (when we are drawing normally)
+    reg [7:0] x_init; //from 0 to 159
+    reg [6:0] y_init; //from 0 to 119
+    reg [2:0] colour; // 001, 010, 100
 
+    parameter X_SCREEN_PIXELS = 8'd160;
+    parameter Y_SCREEN_PIXELS = 7'd120;
 
-  //load the registers based on control signals
-  always@(posedge Clock) begin
-   if(!ResetN) begin
-      x_init<= 8'b00000000;
-      y_init<= 7'b0000000;
-      colour<= 3'b000;
-   end
-   //if it is time to load the x register (iLoadX goes high)
-   else if(ControlX)begin
-      x_init<=init_coord;
-   end
+    //load the registers based on control signals
+    always@(posedge Clock) begin
+        if(!ResetN) begin
+            x_init <= 8'b00000000;
+            y_init <= 7'b0000000;
+            colour <= 3'b000;
+            counter <= 4'b0000; // Ensure counter is also reset
+        end
+        else if(ControlX) begin
+            x_init <= {1'b0, init_coord}; // Add zero MSB to make it 8 bits
+        end
+        else if(ControlYC) begin
+            y_init <= init_coord;
+            colour <= Colour;
+        end
+    end
 
-   //if it is time to load the y register and the colour (iLoadX goes low)
-   else if(ControlYC)begin
-      y_init<= init_coord;
-      colour<= Colour;
-   end
+    //increment the counter for drawing the box
+    always @(posedge Clock) begin
+        if (!ResetN) begin
+            counter <= 4'b0000;
+        end
+        else if (ControlD && counter < 4'b1111) begin // Only increment counter when drawing
+            counter <= counter + 1'b1;
+        end
+        else if (!ControlD) begin
+            counter <= 4'b0000; // Reset counter when not drawing
+        end
+    end
 
-   //if it is time to draw normally (iPlotBox)
-   else if(ControlD)begin
-      //load the output registers
-      oX <= x_init + counter[1:0]; //add LSB current counter value to the initial x position
-      oY <= y_init + counter[3:2]; //add MSB current counter value to the intiial y position 
-      oC <= colour;
-   end
+    // Drawing or clearing the screen
+    always @(posedge Clock) begin
+        if(ControlD) begin
+            oX <= x_init + counter[1:0]; // add LSBs of counter to x_init
+            oY <= y_init + counter[3:2]; // add MSBs of counter to y_init
+            oC <= colour;
+        end
+        else if(ControlB) begin
+            oX <= blackX;
+            oY <= blackY;
+            oC <= 3'b000; // set color to black
+        end
+    end
 
-   //if it is time to draw black (iBlack)
-   else if(ControlB)begin
-      colour <= 3'b000; //set the colour to black
-      oX <= blackX;
-      oY <= blackY;
-      oC <= colour;
-   end
+    // handle the black screen drawing logic
+    always @(posedge Clock) begin
+        if(!ResetN) begin
+            blackX <= 8'b0;
+            blackY <= 7'b0;
+        end
 
-  end
+        else if (ControlB) begin
+            if(blackX < X_SCREEN_PIXELS-1) begin
+                blackX <= blackX + 1'b1;
+            end
 
-  //increment the counter
-   always @(posedge Clock) begin
-      if (!ResetN || counter == 4'b1111) begin//active low reset or counter has finished 
-         counter <= 4'b0000;
-      end
+            else if(blackY < Y_SCREEN_PIXELS-1) begin
+                blackX <= 0;
+                blackY <= blackY + 1'b1;
+            end
 
-      else if(counter < 4'b1111) begin //if counter has not finished, keep drawing the box 
-         counter <= counter + 4'b0001;
-      end
+            else begin
+                blackX <= 0;
+                blackY <= 0;
+            end
 
-   end
-
-   //now handle the iBlack control signal
-   always @(posedge Clock)begin
-      if(!ResetN || (blackX == X_SCREEN_PIXELS-1 && blackY == Y_SCREEN_PIXELS-1))begin //active low reset, or we finished clearing the entire screen
-         blackX <= 8'b00000000;
-         blackY <= 7'b0000000;
-         //colour <= 3'b000;
-      end
-
-      else if(ControlB)begin //keep incrementing the X because we haven't hit the end of the row 
-         blackX <= blackX + 8'b00000001;
-      end
-
-      else if(blackX == X_SCREEN_PIXELS-1 && blackY < Y_SCREEN_PIXELS-1)begin //move onto the next row by incrementing Y, and blackX goes back to 0
-         blackX <=  8'b00000000;
-         blackY <= blackY + 7'b0000001;
-      end
-
-   end
-
+        end
+    end
 endmodule
+

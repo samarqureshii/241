@@ -65,6 +65,20 @@ module fill
 			
 	// Put your code here. Your code should produce signals x,y,colour and writeEn
 	// for the VGA controller, in addition to any other functionality your design may require.
+
+	part2 part2(
+		.iClock(CLOCK_50),
+		.iResetn(resetn),
+		.iPlotBox(~KEY[1]),
+		.iBlack(~KEY[2]),
+		.iLoadX(~KEY[3]),
+		.iXY_Coord(SW[6:0]),
+		.iColour(SW[9:7]),
+		.oX(x),
+		.oY(y),
+		.oColour(colour),
+		.oPlot(writeEn)
+	);
 	
 	
 endmodule
