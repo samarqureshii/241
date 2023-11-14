@@ -231,10 +231,10 @@ module Datapath(
             x_init <= 8'b00000000;
             y_init <= 7'b0000000;
             colour <= 3'b000;
-            counter <= 4'b0000; // Ensure counter is also reset
+            counter <= 4'b0000; // snsure counter is also reset
         end
         else if(ControlX) begin
-            x_init <= {1'b0, init_coord}; // Add zero MSB to make it 8 bits
+            x_init <= {1'b0, init_coord}; // add zero MSB to make it 8 bits
         end
         else if(ControlYC) begin
             y_init <= init_coord;
@@ -242,32 +242,42 @@ module Datapath(
         end
     end
 
-    //increment the counter for drawing the box
-    always @(posedge Clock) begin
-        if (!ResetN) begin
-            counter <= 4'b0000;
-        end
-        else if (ControlD && counter < 4'b1111) begin // Only increment counter when drawing
-            counter <= counter + 1'b1;
-        end
-        else if (!ControlD) begin
-            counter <= 4'b0000; // Reset counter when not drawing
-        end
-    end
+   // drawing the box or clearing the screen
+   always @(posedge Clock) begin
+      if(ControlD) begin
+         // draw the pixel based on the current count, including when counter is 15
+         oX <= x_init + counter[1:0]; // add LSBs of counter to x_init
+         oY <= y_init + counter[3:2]; // add MSBs of counter to y_init
+         oC <= colour;
+      end
+      else if(ControlB) begin
+         oX <= blackX;
+         oY <= blackY;
+         oC <= 3'b000; // Set color to black
+      end
 
-    // Drawing or clearing the screen
-    always @(posedge Clock) begin
-        if(ControlD) begin
-            oX <= x_init + counter[1:0]; // add LSBs of counter to x_init
-            oY <= y_init + counter[3:2]; // add MSBs of counter to y_init
-            oC <= colour;
-        end
-        else if(ControlB) begin
-            oX <= blackX;
-            oY <= blackY;
-            oC <= 3'b000; // set color to black
-        end
-    end
+      // after the last pixel is drawn 
+      //which we know because ControlD will be deasserted in the next cycle- we reset the counter here
+      if (counter == 4'b1111 && !ControlD) begin
+         counter <= 4'b0000;
+      end
+   end
+
+   // counter logic to handle the last pixel drawing
+   always @(posedge Clock) begin
+      if (!ResetN) begin
+         counter <= 4'b0000;
+      end
+      else if (ControlD) begin
+         if (counter < 4'b1111) begin
+               counter <= counter + 1'b1;
+         end
+         // no else statement here, we are handling the counter reset after drawing the last pixel
+      end
+      else begin
+         counter <= 4'b0000; // reset counter when not drawing
+      end
+   end
 
     // handle the black screen drawing logic
     always @(posedge Clock) begin
