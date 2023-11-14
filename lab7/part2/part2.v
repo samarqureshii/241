@@ -119,38 +119,64 @@ module Control(
                S_DRAW_WAIT = 3'd5,
                S_CLEAR = 3'd6;
 
-   always @ (posedge Clock) begin
+   always @ (*) begin
    if (!ResetN) begin // active low reset
-      current <= S_LOAD_X; // back to start
-      loadX <= 0;
-      loadYC <= 0;
-      loadD <= 0;
-      loadB <= 0;
-      done <= 0;
-      plot <= 0;
-   end 
-
-   else if(loadB) begin
-      current <= S_CLEAR;
-   end
-
-   else begin
-      current <= next; 
-   end
-   end
-
-   always @ (*) begin // State table 
-      // reset all control signals at the beginning of each state transition so they dont stay high
+      current = S_LOAD_X; // back to start
       loadX = 0;
       loadYC = 0;
       loadD = 0;
       loadB = 0;
+      done = 0;
       plot = 0;
+   end 
+
+   else if(loadB) begin
+      current = S_CLEAR;
+   end
+
+   else begin
+      current = next; 
+   end
+
+   case (current)
+      S_LOAD_X: begin
+         loadX = 1; // assert loadX to load the X coordinate
+      end
+
+
+      S_LOAD_YC: begin
+         loadYC = 1; // Assert loadYC to load the Y coordinate and color
+      end
+      
+      S_DRAW: begin // if counter hits 1111, then we know we are done drawing the box
+         loadD = 1; // assert loadD to start drawing
+         plot = 1; // assert plot to enable drawing on VGA
+      end
+
+      S_DRAW_WAIT: begin // either after we have drawn or cleared the screen, we have to wait for the x to be loaded again
+         done = 1; // assert done to indicate completion
+      end
+
+      S_CLEAR: begin // if we are done clearing the screen, we now wait
+         loadB = 1; // assert loadB to clear the screen
+         plot = 1; // assert plot to enable drawing on VGA
+         if (next == S_DRAW_WAIT) done = 1; // Assert done after clearing is complete
+
+      end
+   endcase
+   end
+
+   always @ (*) begin // State table 
+      // reset all control signals at the beginning of each state transition so they dont stay high
+      // loadX = 0;
+      // loadYC = 0;
+      // loadD = 0;
+      // loadB = 0;
+      // plot = 0;
       
       case (current)
          S_LOAD_X: begin
             next = iLoadX ? S_WAIT_X : current; // keep waiting until we load x
-            loadX = 1; // assert loadX to load the X coordinate
          end
 
          S_WAIT_X: begin // once load x goes low, we can load x and start waiting for y and color to be loaded
@@ -160,7 +186,6 @@ module Control(
 
          S_LOAD_YC: begin
             next = iPlotBox ? S_WAIT_YC : current; // Once iPlotBox goes high, then we can load y and color
-            loadYC = 1; // Assert loadYC to load the Y coordinate and color
          end
 
          S_WAIT_YC: begin
@@ -169,21 +194,16 @@ module Control(
          end
          
          S_DRAW: begin // if counter hits 1111, then we know we are done drawing the box
-            loadD = 1; // assert loadD to start drawing
-            plot = 1; // assert plot to enable drawing on VGA
             next = (counter == 5'b10000) ? S_DRAW_WAIT : current;
          end
 
          S_DRAW_WAIT: begin // either after we have drawn or cleared the screen, we have to wait for the x to be loaded again
-            done = 1; // assert done to indicate completion
             next = (iLoadX || iBlack) ? S_LOAD_X : current; // move to load X only if iLoadX or iBlack is pulsed
          end
 
          S_CLEAR: begin // if we are done clearing the screen, we now wait
-            loadB = 1; // assert loadB to clear the screen
-            plot = 1; // assert plot to enable drawing on VGA
             next = ((blackX == X_SCREEN_PIXELS-1) && (blackY == Y_SCREEN_PIXELS-1)) ? S_DRAW_WAIT : current;
-            if (next == S_DRAW_WAIT) done = 1; // Assert done after clearing is complete
+            // if (next == S_DRAW_WAIT) done = 1; // Assert done after clearing is complete
          end
 
          default: begin
