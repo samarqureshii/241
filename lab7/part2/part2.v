@@ -119,64 +119,38 @@ module Control(
                S_DRAW_WAIT = 3'd5,
                S_CLEAR = 3'd6;
 
-   always @ (*) begin
+   always @ (posedge Clock) begin
    if (!ResetN) begin // active low reset
-      current = S_LOAD_X; // back to start
-      loadX = 0;
-      loadYC = 0;
-      loadD = 0;
-      loadB = 0;
-      done = 0;
-      plot = 0;
+      current <= S_LOAD_X; // back to start
+      loadX <= 0;
+      loadYC <= 0;
+      loadD <= 0;
+      loadB <= 0;
+      done <= 0;
+      plot <= 0;
    end 
 
    else if(loadB) begin
-      current = S_CLEAR;
+      current <= S_CLEAR;
    end
 
    else begin
-      current = next; 
+      current <= next; 
    end
-
-   case (current)
-      S_LOAD_X: begin
-         loadX = 1; // assert loadX to load the X coordinate
-      end
-
-
-      S_LOAD_YC: begin
-         loadYC = 1; // Assert loadYC to load the Y coordinate and color
-      end
-      
-      S_DRAW: begin // if counter hits 1111, then we know we are done drawing the box
-         loadD = 1; // assert loadD to start drawing
-         plot = 1; // assert plot to enable drawing on VGA
-      end
-
-      S_DRAW_WAIT: begin // either after we have drawn or cleared the screen, we have to wait for the x to be loaded again
-         done = 1; // assert done to indicate completion
-      end
-
-      S_CLEAR: begin // if we are done clearing the screen, we now wait
-         loadB = 1; // assert loadB to clear the screen
-         plot = 1; // assert plot to enable drawing on VGA
-         if (next == S_DRAW_WAIT) done = 1; // Assert done after clearing is complete
-
-      end
-   endcase
    end
 
    always @ (*) begin // State table 
       // reset all control signals at the beginning of each state transition so they dont stay high
-      // loadX = 0;
-      // loadYC = 0;
-      // loadD = 0;
-      // loadB = 0;
-      // plot = 0;
+      loadX = 0;
+      loadYC = 0;
+      loadD = 0;
+      loadB = 0;
+      plot = 0;
       
       case (current)
          S_LOAD_X: begin
             next = iLoadX ? S_WAIT_X : current; // keep waiting until we load x
+            loadX = 1; // assert loadX to load the X coordinate
          end
 
          S_WAIT_X: begin // once load x goes low, we can load x and start waiting for y and color to be loaded
@@ -186,6 +160,7 @@ module Control(
 
          S_LOAD_YC: begin
             next = iPlotBox ? S_WAIT_YC : current; // Once iPlotBox goes high, then we can load y and color
+            loadYC = 1; // Assert loadYC to load the Y coordinate and color
          end
 
          S_WAIT_YC: begin
@@ -194,16 +169,21 @@ module Control(
          end
          
          S_DRAW: begin // if counter hits 1111, then we know we are done drawing the box
+            loadD = 1; // assert loadD to start drawing
+            plot = 1; // assert plot to enable drawing on VGA
             next = (counter == 5'b10000) ? S_DRAW_WAIT : current;
          end
 
          S_DRAW_WAIT: begin // either after we have drawn or cleared the screen, we have to wait for the x to be loaded again
+            done = 1; // assert done to indicate completion
             next = (iLoadX || iBlack) ? S_LOAD_X : current; // move to load X only if iLoadX or iBlack is pulsed
          end
 
          S_CLEAR: begin // if we are done clearing the screen, we now wait
+            loadB = 1; // assert loadB to clear the screen
+            plot = 1; // assert plot to enable drawing on VGA
             next = ((blackX == X_SCREEN_PIXELS-1) && (blackY == Y_SCREEN_PIXELS-1)) ? S_DRAW_WAIT : current;
-            // if (next == S_DRAW_WAIT) done = 1; // Assert done after clearing is complete
+            if (next == S_DRAW_WAIT) done = 1; // Assert done after clearing is complete
          end
 
          default: begin
@@ -221,24 +201,18 @@ module Datapath(
     input ResetN,
     input [6:0] init_coord, // initial X and Y coord
     input [2:0] Colour,
-
     input ControlX, // control when to load the x register
     input ControlYC, // control when to load the y register and colour register
     input ControlD, // control when to draw and output the x/y registers
     input ControlB, // control when we want to clear the screen
-
-    //outputs to the VGA adapter 
     output reg [7:0] oX, //x coord
     output reg [6:0] oY, //y coord
     output reg [2:0] oC, //colour
-
-    //storage of the current black X and Y, needs to be outputted into Control module so we know which state we're in
     output reg [7:0] blackX,
     output reg [6:0] blackY,
     output reg [4:0] counter //internal counter
 );
 
-    //internal storage the current x, y and colour (when we are drawing normally)
     reg [7:0] x_init; //from 0 to 159
     reg [6:0] y_init; //from 0 to 119
     reg [2:0] colour; // 001, 010, 100
@@ -246,7 +220,6 @@ module Datapath(
     parameter X_SCREEN_PIXELS = 8'd160;
     parameter Y_SCREEN_PIXELS = 7'd120;
 
-    // Load the registers based on control signals
     always @(posedge Clock) begin
         if (!ResetN) begin
             // Reset logic
@@ -254,90 +227,48 @@ module Datapath(
             y_init <= 7'b0;
             colour <= 3'b0;
             counter <= 5'b0;
-            // Ensure outputs are also reset
             oX <= 8'b0;
             oY <= 7'b0;
             oC <= 3'b0;
             blackX <= 8'b0;
             blackY <= 7'b0;
-        end else if (ControlX) begin
-            x_init <= {1'b0, init_coord};
-        end else if (ControlYC) begin
-            y_init <= init_coord;
-            colour <= Colour;
-        end
-
-        else if (ControlD) begin
-            // Draw the pixel based on the current count
-         if (counter < 5'b10000) begin
-            counter <= counter + 1'b1;
-         end
-
-            oX <= x_init + counter[1:0]; // Add LSBs of counter to x_init
-            oY <= y_init + counter[3:2]; // Add MSBs of counter to y_init
-            oC <= colour; // Keep the colour until the pixel is drawn
         end 
-
-        else if (ControlB) begin
-            if (blackX < X_SCREEN_PIXELS - 1) begin
-                blackX <= blackX + 1'b1;
-            end else if (blackY < Y_SCREEN_PIXELS - 1) begin
-                blackY <= blackY + 1'b1;
-                blackX <= 8'b0;
-            end else begin
-                // Reset to starting position after the screen is cleared
-                blackX <= 8'b0;
-                blackY <= 7'b0;
-            end
-            // Clearing logic
-            oX <= blackX;
-            oY <= blackY;
-            oC <= 3'b0; // Set colour to black
-        end
-
         else begin
-         // if the draw control signal is not active, reset the counter.
-         counter <= 5'b0;
-      end
+            if (ControlX) begin
+                x_init <= {1'b0, init_coord};
+            end 
+            if (ControlYC) begin
+                y_init <= init_coord;
+                colour <= Colour;
+            end
+            if (ControlD) begin
+                // Draw the pixel based on the current count
+                oX <= x_init + counter[1:0]; // Add LSBs of counter to x_init
+                oY <= y_init + counter[3:2]; // Add MSBs of counter to y_init
+                oC <= colour; // Keep the colour until the pixel is drawn
+                if (counter < 5'b10000) begin
+                    counter <= counter + 1'b1;
+                end
+            end 
+            else if (ControlB) begin
+                // Clearing logic
+                oX <= blackX;
+                oY <= blackY;
+                oC <= 3'b0; // Set colour to black
+                if (blackX < X_SCREEN_PIXELS - 1) begin
+                    blackX <= blackX + 1'b1;
+                end else if (blackY < Y_SCREEN_PIXELS - 1) begin
+                    blackY <= blackY + 1'b1;
+                    blackX <= 8'b0;
+                end else begin
+                    // Reset to starting position after the screen is cleared
+                    blackX <= 8'b0;
+                    blackY <= 7'b0;
+                end
+            end 
+            else begin
+                counter <= 5'b0;
+            end
+        end
     end
-
-   // always @(posedge Clock) begin
-   //    if (!ResetN) begin
-   //       // reset the counter on a reset signal.
-   //       counter <= 5'b0;
-   //    end else if (ControlD) begin
-   //       //if the draw control signal is active and the counter is less than 15, increment the counter.
-   //       if (counter < 5'b10000) begin
-   //             counter <= counter + 1'b1;
-   //       end
-   //    end else begin
-   //       // if the draw control signal is not active, reset the counter.
-   //       counter <= 5'b0;
-   //    end
-   // end
-
-
-   //  // Handle the black screen drawing logic
-   //  always @(posedge Clock) begin
-   //      if (!ResetN) begin
-   //          // Reset black screen counters
-   //          blackX <= 8'b0;
-   //          blackY <= 7'b0;
-   //      end 
-   //      else if (ControlB) begin
-   //          if (blackX < X_SCREEN_PIXELS - 1) begin
-   //              blackX <= blackX + 1'b1;
-   //          end else if (blackY < Y_SCREEN_PIXELS - 1) begin
-   //              blackY <= blackY + 1'b1;
-   //              blackX <= 8'b0;
-   //          end else begin
-   //              // Reset to starting position after the screen is cleared
-   //              blackX <= 8'b0;
-   //              blackY <= 7'b0;
-   //          end
-   //      end
-   //  end
-
 endmodule
-
-
