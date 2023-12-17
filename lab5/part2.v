@@ -1,9 +1,9 @@
-// module toplevel (input CLOCK_50, input [9:0] SW, output [6:0] HEX0);
-//   wire [3:0] counterValue;
+module toplevel (input CLOCK_50, input [9:0] SW, output [6:0] HEX0);
+  wire [3:0] counterValue;
 
-//   part2 #(50000000) p2 (CLOCK_50, SW[9], SW[1:0], counterValue[3:0]);
-//   hex_decoder hd (counterValue[3:0], HEX0[6:0]);
-// endmodule
+  part2 #(50000000) p2 (CLOCK_50, SW[9], SW[1:0], counterValue[3:0]);
+  hex_decoder hd (counterValue[3:0], HEX0[6:0]);
+endmodule
 
 
 module part2 
