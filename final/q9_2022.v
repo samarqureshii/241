@@ -1,62 +1,49 @@
-module blinking_timer(Clock_50, Resetn, LED)
+module blinking_timer(Clock_50, Resetn, LED);
     input Clock_50;
     input Resetn;
-    output LED;
+    output reg LED;
 
-    wire Enable; //pulse every 1s
+    reg [25:0] downCount = 50000000 - 1; 
+    reg [6:0] timer = 7'd100; 
+    reg [3:0] LED_counter = 0; 
 
-    //rate divide
-
-    reg [25:0] downCount; //every cycle 
-    reg [6:0] timer; //timer for every 1s, use the pulse Enable signal to determine when we increment the timer 
-
-    always @(posedge ClockIn) begin
-        if(downCount == 26'd0 || !Resetn) begin //active low reset
-            Enable = 1'b1; //assert the enable signal, remains high during reset 
-            downCount <=50000000-1; //count 50MHz cycles
-            
-        end
-
-        else begin
-            downCount<=downCount -1;
-            Enable<=1'b0; //enable only pulses if we finish the 50MHz cycles
-        end
-
-        if(timer == 7'd0 || !Resetn) begin 
+    always @(posedge Clock_50 or negedge Resetn) begin
+        if (!Resetn) begin 
+            downCount <= 50000000 - 1;
             timer <= 7'd100;
-        end
+            LED_counter <= 0;
+            LED <= 1'b0;
+        end 
+        
+        else begin
+            //1s pulse
+            if (downCount == 0) begin
+                downCount <= 50000000 - 1; // reload the down counter
+                if (timer != 0) 
+                    timer <= timer - 1'b1; // decrement the timer if not 0
+                else 
+                    timer <= 7'd100; // reset the timer if it reaches 0
 
-        if(Enable)begin //if we pulse the enable signal, then decrement the timer 
-            timer <= timer - 1;
-        end
+                if (timer > 7'd50) begin // from 100s to 50s
+                    if (LED_counter < 4'd10) begin //0->9
+                        LED_counter <= LED_counter + 1'b1;
+                    end 
+                    
+                    else begin
+                        LED_counter <= 0;
+                    end
+                    LED <= (LED_counter < 4'd5); // LED is on for the first 5 seconds
+                end 
+                
+                else begin // from 50s to 0s
+                    LED <= !LED; // LED is what its not (toggle)
+                end
 
-        if(timer > 7'd50 )begin // when timer is from 100s to 50s
-            //pulse the LED once every 5 seconds
-            if(timer % 3'd5 == 0)begin
-                LED <= 1'b1;
-            end
-
+            end 
+            
             else begin
-                LED <= 1'b0
-            end
-        end
-
-        else begin //when timer is from 50s to 0s
-            //pulse the LED once every 1 second 
-            if(timer % 2'd2 == 0) begin
-                LED <= 1'b1;
-            end
-            else begin
-                LED <= 1'b0;
+                downCount <= downCount - 1'b1; 
             end
         end
     end
 endmodule
-
-// module RateDivider #(parameter FREQUENCY = 50000000)( //gives us one second timer
-//     input ClockIn,
-//     input Reset,
-//     input speedEn,
-//     output reg Enable); //pulse every 1s
-
-// endmodule
